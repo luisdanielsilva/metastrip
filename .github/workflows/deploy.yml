@@ -26,11 +26,10 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Prepare deploy directory on VPS
+      - name: Prepare deploy directory
         run: |
           sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} \
-            'echo "${{ secrets.VPS_PASSWORD }}" | sudo -S mkdir -p /var/www/metastrip && \
-             echo "${{ secrets.VPS_PASSWORD }}" | sudo -S chown -R deploy:www-data /var/www/metastrip'
+            'echo "${{ secrets.VPS_PASSWORD }}" | sudo -S mkdir -p /var/www/metastrip && echo "${{ secrets.VPS_PASSWORD }}" | sudo -S chown -R deploy:www-data /var/www/metastrip'
 
       - name: Sync code to VPS
         run: |
@@ -45,49 +44,15 @@ jobs:
 
       - name: Install dependencies and build
         run: |
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} '
-            cd /var/www/metastrip
-            npm ci --omit=dev
-            npm run build
-          '
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} \
+            'cd /var/www/metastrip && npm ci --omit=dev && npm run build'
 
       - name: Install PM2 and start/restart app
         run: |
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} '
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S npm install -g pm2 2>/dev/null || true
-            cd /var/www/metastrip
-            pm2 describe metastrip > /dev/null 2>&1 \
-              && pm2 reload ecosystem.config.js --update-env \
-              || pm2 start ecosystem.config.js
-            pm2 save
-          '
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} \
+            'echo "${{ secrets.VPS_PASSWORD }}" | sudo -S npm install -g pm2 2>/dev/null || true && cd /var/www/metastrip && (pm2 describe metastrip > /dev/null 2>&1 && pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js) && pm2 save'
 
       - name: Configure nginx for /metastrip/
         run: |
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} '
-            sudo tee /tmp/add_metastrip_nginx.py > /dev/null << '"'"'PYEOF'"'"'
-import re, sys
-path = "/etc/nginx/sites-available/default"
-content = open(path).read()
-if "location /metastrip" in content:
-    print("nginx: metastrip already configured, skipping")
-    sys.exit(0)
-block = (
-    "\n    location /metastrip/ {"
-    "\n        proxy_pass http://127.0.0.1:4001/;"
-    "\n        proxy_http_version 1.1;"
-    "\n        proxy_set_header Host $host;"
-    "\n        proxy_set_header X-Real-IP $remote_addr;"
-    "\n        client_max_body_size 200M;"
-    "\n    }"
-)
-content = content.rstrip()
-if content.endswith("}"):
-    content = content[:-1] + block + "\n}"
-open(path, "w").write(content)
-print("nginx: added /metastrip/ location block")
-PYEOF
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S python3 /tmp/add_metastrip_nginx.py
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S nginx -t && \
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S systemctl reload nginx
-          '
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} \
+            'echo "${{ secrets.VPS_PASSWORD }}" | sudo -S python3 /var/www/metastrip/scripts/add_nginx_location.py && echo "${{ secrets.VPS_PASSWORD }}" | sudo -S nginx -t && echo "${{ secrets.VPS_PASSWORD }}" | sudo -S systemctl reload nginx'
