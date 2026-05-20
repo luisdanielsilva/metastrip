@@ -134,7 +134,7 @@ export default function App() {
             <div style={{ paddingTop: 48 }}>
               <div style={{ textAlign: 'center', marginBottom: 32, animation: 'fadeUp 0.5s ease both' }}>
                 <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
-                  Clean your image metadata
+                  Strip your image metadata
                 </h1>
                 <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
                   Remove GPS, timestamps, author info & more from JPEG, PNG & TIFF files.
