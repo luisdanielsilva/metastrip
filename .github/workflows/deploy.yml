@@ -42,6 +42,11 @@ jobs:
             --exclude 'dist-electron' \
             ./ deploy@${{ secrets.VPS_HOST }}:/var/www/metastrip/
 
+      - name: Ensure Node.js is installed on VPS
+        run: |
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} \
+            'node --version 2>/dev/null || (curl -fsSL https://deb.nodesource.com/setup_20.x | echo "${{ secrets.VPS_PASSWORD }}" | sudo -SE bash - && echo "${{ secrets.VPS_PASSWORD }}" | sudo -S apt-get install -y nodejs)'
+
       - name: Install dependencies and build
         run: |
           sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh deploy@${{ secrets.VPS_HOST }} \
